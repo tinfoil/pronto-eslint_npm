@@ -26,17 +26,35 @@ module Pronto
         end
       end
 
-      context 'patches with a one and a four warnings' do
+      context 'patches with a one error and a four warnings' do
         include_context 'test repo'
 
         let(:patches) { repo.diff('master') }
 
         it 'returns correct number of errors' do
-          expect(run.count).to eql(5)
+          expect(run.count).to eql(7)
         end
 
-        it 'has correct first message' do
-          expect(run.first.msg).to eql("'foo' is not defined.")
+        it 'has correct messages' do
+          expect(run.map(&:msg)).to eql([
+            "'foo' is not defined.",
+            "'foo' is not defined.",
+            "More than 2 blank lines not allowed.",
+            "'Empty' is defined but never used.",
+            "'HelloWorld' is defined but never used.",
+            "'foo' is not defined.",
+            "'foo' is not defined."
+          ])
+        end
+
+        it 'has correct line numbers' do
+          expect(run.map { |m| m.line.new_lineno }).to eql([3, 3, 9, 9, 1, 3, 3])
+        end
+
+        it 'has correct levels' do
+          expect(run.map(&:level)).to eql([
+            :error, :error, :warning, :error, :error, :error, :error
+          ])
         end
 
         context(
@@ -53,7 +71,16 @@ module Pronto
           config: { 'files_to_lint' => '\.js$' }
         ) do
           it 'returns correct amount of errors' do
-            expect(run.count).to eql(2)
+            expect(run.count).to eql(4)
+          end
+
+          it 'has correct messages' do
+            expect(run.map(&:msg)).to eql([
+              "'foo' is not defined.",
+              "'foo' is not defined.",
+              "More than 2 blank lines not allowed.",
+              "'Empty' is defined but never used."
+            ])
           end
         end
 
@@ -62,7 +89,19 @@ module Pronto
           config: { 'cmd_line_opts' => '--ext .html' }
         ) do
           it 'returns correct number of errors' do
-            expect(run.count).to eql 5
+            expect(run.count).to eql(7)
+          end
+
+          it 'has correct messages' do
+            expect(run.map(&:msg)).to eql([
+              "'foo' is not defined.",
+              "'foo' is not defined.",
+              "More than 2 blank lines not allowed.",
+              "'Empty' is defined but never used.",
+              "'HelloWorld' is defined but never used.",
+              "'foo' is not defined.",
+              "'foo' is not defined."
+            ])
           end
         end
 
@@ -148,7 +187,7 @@ module Pronto
           expect(eslint_command_line).not_to include(path)
         end
       end
-      
+
       context(
         'with some command line options',
         config: { 'cmd_line_opts' => '--my command --line opts' }

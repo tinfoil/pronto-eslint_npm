@@ -7,6 +7,7 @@ module Pronto
   class ESLintNpm < Runner
     CONFIG_FILE = '.pronto_eslint_npm.yml'.freeze
     CONFIG_KEYS = %w[eslint_executable files_to_lint cmd_line_opts].freeze
+    SEVERITY_LEVELS = [nil, :warning, :error].freeze
 
     attr_writer :eslint_executable, :cmd_line_opts
 
@@ -60,19 +61,19 @@ module Pronto
     end
 
     def inspect(patch)
+      lines = patch.added_lines
       offences = run_eslint(patch)
       clean_up_eslint_output(offences)
         .map do |offence|
-          patch
-            .added_lines
-            .select { |line| line.new_lineno == offence['line'] }
-            .map { |line| new_message(offence, line) }
+          range = offence['line']..(offence['endLine'] || offence['line'])
+          line = lines.select { |line| range.cover?(line.new_lineno) }.last
+          new_message(offence, line) if line
         end
     end
 
     def new_message(offence, line)
       path  = line.patch.delta.new_file[:path]
-      level = :warning
+      level = SEVERITY_LEVELS.fetch(offence['severity'], :warning)
 
       Message.new(path, line, level, offence['message'], nil, self.class)
     end
